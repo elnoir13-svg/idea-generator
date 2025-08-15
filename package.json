@@ -1,0 +1,33 @@
+{
+  "name": "character-idea-generator",
+  "version": "1.0.0",
+  "description": "Generate unique character concepts for creative projects",
+  "main": "script.js",
+  "scripts": {
+    "build": "webpack --mode=production",
+    "dev": "webpack --mode=development",
+    "watch": "webpack --mode=development --watch",
+    "serve": "webpack serve --mode=development --open",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "character",
+    "generator",
+    "creative",
+    "writing"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "clean-webpack-plugin": "^4.0.0",
+    "copy-webpack-plugin": "^11.0.0",
+    "css-loader": "^6.8.1",
+    "html-webpack-plugin": "^5.5.3",
+    "mini-css-extract-plugin": "^2.7.6",
+    "rimraf": "^5.0.10",
+    "style-loader": "^3.3.3",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.2"
+  }
+}
