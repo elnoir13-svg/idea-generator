@@ -5,9 +5,9 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 module.exports = {
-  entry: './script.js',
+  entry: './src/script.js',  // Updated to src directory
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, 'release'),  // Changed from 'dist' to 'release' to match your structure
     filename: 'bundle.[contenthash].js',
     clean: true
   },
@@ -26,7 +26,7 @@ module.exports = {
   plugins: [
     new CleanWebpackPlugin(),
     new HtmlWebpackPlugin({
-      template: './index.html',
+      template: './src/index.html',  // Updated to src directory
       filename: 'index.html',
       minify: {
         removeComments: true,
@@ -46,7 +46,7 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        { from: 'sample.json', to: 'sample.json' },
+        { from: 'src/sample.json', to: 'sample.json' },  // Updated to src directory
         { from: 'README.md', to: 'README.md' },
         { from: 'README-en.md', to: 'README-en.md' }
       ],
