@@ -15,7 +15,8 @@ class CharacterGenerator {
 
   // Get the appropriate sample data based on current language
   getSampleData() {
-    const currentLang = document.documentElement.getAttribute("lang") || "zh-TW";
+    const currentLang =
+      document.documentElement.getAttribute("lang") || "zh-TW";
     return currentLang === "en" ? SAMPLE_DATA_EN : SAMPLE_DATA_ZH;
   }
 
@@ -198,6 +199,7 @@ class CharacterGenerator {
       name: propertyName,
       options: [],
       optionsToGenerate: 1, // Default value
+      enabled: true, // Add enabled field, default to true
     };
 
     this.properties.push(property);
@@ -205,53 +207,322 @@ class CharacterGenerator {
     propertyNameInput.value = "";
     this.saveToLocalStorage(); // Auto-save after adding property
   }
+  reorderProperties(draggedId, targetId, insertBefore) {
+    const draggedIndex = this.properties.findIndex((p) => p.id === draggedId);
+    const targetIndex = this.properties.findIndex((p) => p.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    // Remove the dragged property from its current position
+    const [draggedProperty] = this.properties.splice(draggedIndex, 1);
+
+    // Calculate the new insertion index
+    let newIndex = targetIndex;
+    if (draggedIndex < targetIndex) {
+      newIndex = insertBefore ? targetIndex - 1 : targetIndex;
+    } else {
+      newIndex = insertBefore ? targetIndex : targetIndex + 1;
+    }
+
+    // Insert the dragged property at the new position
+    this.properties.splice(newIndex, 0, draggedProperty);
+
+    // Re-render all properties to reflect the new order
+    this.renderProperties();
+
+    // Save the updated order to localStorage
+    this.saveToLocalStorage();
+  }
+  renderProperties() {
+    // Save current expanded/collapsed states
+    const expandedStates = {};
+    document.querySelectorAll('.property-item').forEach(item => {
+      const content = item.querySelector('.property-content');
+      if (content) {
+        expandedStates[item.id] = content.style.display !== 'none';
+      }
+    });
+    
+    // Clear and re-render all properties
+    const propertyList = document.getElementById('propertyList');
+    propertyList.innerHTML = '';
+    
+    this.properties.forEach(property => {
+      this.renderProperty(property);
+    });
+    
+    // Restore expanded/collapsed states
+    Object.keys(expandedStates).forEach(propertyId => {
+      const propertyElement = document.getElementById(propertyId);
+      if (propertyElement) {
+        const content = propertyElement.querySelector('.property-content');
+        const toggleBtn = propertyElement.querySelector('.toggle-property-btn');
+        if (content && toggleBtn) {
+          if (expandedStates[propertyId]) {
+            content.style.display = 'block';
+            toggleBtn.textContent = '▼';
+          } else {
+            content.style.display = 'none';
+            toggleBtn.textContent = '▶';
+          }
+        }
+      }
+    });
+  }
 
   renderProperty(property) {
     const propertyList = document.getElementById("propertyList");
 
     const propertyElement = document.createElement("div");
-    propertyElement.className = "property-item";
+    propertyElement.className = `property-item ${
+      property.enabled ? "" : "disabled"
+    }`;
     propertyElement.id = property.id;
     propertyElement.innerHTML = `
       <div class="property-header">
-        <h3>${property.name}</h3>
+        <div class="drag-handle" title="拖拽以重新排序">⋮⋮</div>
+        <h3 class="property-name" data-property-id="${property.id}">${
+      property.name
+    }</h3>
         <div class="property-controls">
+          <button class="enable-toggle-btn ${
+            property.enabled ? "enabled" : "disabled"
+          }" 
+                  data-property-id="${property.id}" 
+                  title="${
+                    property.enabled
+                      ? this.getTranslation("disable-property")
+                      : this.getTranslation("enable-property")
+                  }">
+            ${property.enabled ? "✓" : "✗"}
+          </button>
           <button class="toggle-property-btn">▼</button>
-          <button class="remove-btn" data-property-id="${property.id}">🗑️</button>
+          <button class="remove-btn" data-property-id="${
+            property.id
+          }">🗑️</button>
         </div>
       </div>
       <div class="property-content">
         <div class="property-options" id="options-${property.id}"></div>
         <div class="add-option">
-          <input type="text" id="newOption-${property.id}" placeholder="新選項" data-i18n-placeholder="add-option-placeholder" />
-          <button class="add-option-btn" data-property-id="${property.id}">+</button>
+          <input type="text" id="newOption-${
+            property.id
+          }" placeholder="新選項" data-i18n-placeholder="add-option-placeholder" />
+          <button class="add-option-btn" data-property-id="${
+            property.id
+          }">+</button>
         </div>
         <div class="property-settings">
-          <label for="optionsCount-${property.id}" data-i18n="options-count-label">選項數量:</label>
-          <input type="number" id="optionsCount-${property.id}" class="options-count-input" min="1" value="${property.optionsToGenerate}" data-property-id="${property.id}" />
+          <label for="optionsCount-${
+            property.id
+          }" data-i18n="options-count-label">選項數量:</label>
+          <input type="number" id="optionsCount-${
+            property.id
+          }" class="options-count-input" min="1" value="${
+      property.optionsToGenerate
+    }" data-property-id="${property.id}" />
         </div>
       </div>
     `;
 
     propertyList.appendChild(propertyElement);
 
-    // Add event listeners for the new elements
-    const removeBtn = propertyElement.querySelector('.remove-btn');
-    removeBtn.addEventListener('click', () => this.removeProperty(property.id));
+    // Simple drag and drop implementation
+    let isDragging = false;
+    let hasMoved = false;
+    let startY = 0;
+    let startMouseY = 0;
+    let startMouseX = 0;
+    
+    // Store reference to this for event handlers
+    const self = this;
 
-    const addOptionBtn = propertyElement.querySelector('.add-option-btn');
-    addOptionBtn.addEventListener('click', () => this.addOption(property.id));
+    // Make the entire property element draggable, but exclude interactive elements
+    propertyElement.addEventListener('mousedown', function(e) {
+        // Don't start drag if clicking on interactive elements
+        const interactiveElements = [
+            'button', 'input', 'select', 'textarea', 'a',
+            '.remove-btn', '.add-option-btn', '.enable-toggle-btn', 
+            '.toggle-property-btn', '.options-count-input'
+        ];
+        
+        // Check if the clicked element or its parent is interactive
+        let target = e.target;
+        let isInteractive = false;
+        
+        while (target && target !== propertyElement) {
+            if (interactiveElements.some(selector => {
+                if (selector.startsWith('.')) {
+                    return target.classList.contains(selector.substring(1));
+                } else {
+                    return target.tagName.toLowerCase() === selector;
+                }
+            })) {
+                isInteractive = true;
+                break;
+            }
+            target = target.parentElement;
+        }
+        
+        if (isInteractive) return;
+        
+        e.preventDefault();
+        isDragging = true;
+        hasMoved = false;
+        startY = propertyElement.offsetTop;
+        startMouseY = e.clientY;
+        startMouseX = e.clientX;
+        
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        
+        document.body.style.userSelect = 'none';
+    });
+
+    function handleMouseMove(e) {
+        if (!isDragging) return;
+        
+        const deltaY = Math.abs(e.clientY - startMouseY);
+        const deltaX = Math.abs(e.clientX - startMouseX);
+        
+        // If mouse moved more than 5 pixels, consider it a drag
+        if (deltaY > 5 || deltaX > 5) {
+            if (!hasMoved) {
+                hasMoved = true;
+                propertyElement.style.position = 'relative';
+                propertyElement.style.zIndex = '1000';
+                propertyElement.classList.add('dragging');
+                document.body.style.cursor = 'grabbing';
+            }
+            
+            const moveY = e.clientY - startMouseY;
+            propertyElement.style.transform = `translateY(${moveY}px)`;
+            
+            // Find the element we're hovering over
+            const elements = document.elementsFromPoint(e.clientX, e.clientY);
+            const targetProperty = elements.find(el => 
+                el.classList.contains('property-item') && 
+                el !== propertyElement && 
+                !el.classList.contains('dragging')
+            );
+            
+            // Clear previous indicators
+            document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+                el.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+            
+            if (targetProperty) {
+                const rect = targetProperty.getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                
+                if (e.clientY < midY) {
+                    targetProperty.classList.add('drag-over-top');
+                } else {
+                    targetProperty.classList.add('drag-over-bottom');
+                }
+            }
+        }
+    }
+
+    function handleMouseUp(e) {
+        if (!isDragging) return;
+        
+        isDragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        
+        // If it was a click (no movement), toggle the property
+        if (!hasMoved) {
+            // Check if click was on property header area (not in content area)
+            const propertyHeader = propertyElement.querySelector('.property-header');
+            const propertyContent = propertyElement.querySelector('.property-content');
+            const clickTarget = document.elementFromPoint(e.clientX, e.clientY);
+            
+            // Only toggle if clicking on header area or property name
+            if (propertyHeader && (propertyHeader.contains(clickTarget) || 
+                clickTarget.classList.contains('property-name'))) {
+                
+                const toggleBtn = propertyElement.querySelector('.toggle-property-btn');
+                const content = propertyElement.querySelector('.property-content');
+                
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    toggleBtn.textContent = '▼';
+                } else {
+                    content.style.display = 'none';
+                    toggleBtn.textContent = '▶';
+                }
+            }
+        } else {
+            // It was a drag, handle reordering
+            // Reset element position
+            propertyElement.style.position = '';
+            propertyElement.style.zIndex = '';
+            propertyElement.style.transform = '';
+            propertyElement.classList.remove('dragging');
+            
+            // Find drop target
+            const elements = document.elementsFromPoint(e.clientX, e.clientY);
+            const targetProperty = elements.find(el => 
+                el.classList.contains('property-item') && 
+                el !== propertyElement
+            );
+            
+            if (targetProperty) {
+                const targetId = targetProperty.id;
+                const rect = targetProperty.getBoundingClientRect();
+                const insertBefore = e.clientY < rect.top + rect.height / 2;
+                
+                // Perform the reorder
+                self.reorderProperties(property.id, targetId, insertBefore);
+            }
+            
+            // Clear all drag indicators
+            document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+                el.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+        }
+        
+        // Remove event listeners
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+    }
+
+    // ... existing code for other event listeners ...
+    const removeBtn = propertyElement.querySelector(".remove-btn");
+    removeBtn.addEventListener("click", () => this.removeProperty(property.id));
+
+    const addOptionBtn = propertyElement.querySelector(".add-option-btn");
+    addOptionBtn.addEventListener("click", () => this.addOption(property.id));
+
+    // Add enable/disable toggle event listener
+    const enableToggleBtn = propertyElement.querySelector(".enable-toggle-btn");
+    enableToggleBtn.addEventListener("click", () =>
+      this.togglePropertyEnabled(property.id)
+    );
+
+    // Add double-click event listener for property name editing
+    const propertyNameElement = propertyElement.querySelector(".property-name");
+    propertyNameElement.addEventListener("dblclick", () =>
+      this.startEditingPropertyName(property.id)
+    );
 
     // Add Enter key support for new option input
-    const newOptionInput = propertyElement.querySelector(`#newOption-${property.id}`);
-    newOptionInput.addEventListener('keypress', (e) => {
+    const newOptionInput = propertyElement.querySelector(
+      `#newOption-${property.id}`
+    );
+    newOptionInput.addEventListener("keypress", (e) => {
       if (e.key === "Enter") {
         this.addOption(property.id);
       }
     });
 
-    const optionsCountInput = propertyElement.querySelector('.options-count-input');
-    optionsCountInput.addEventListener('change', (e) => this.updateOptionsToGenerate(property.id, e.target.value));
+    const optionsCountInput = propertyElement.querySelector(
+      ".options-count-input"
+    );
+    optionsCountInput.addEventListener("change", (e) =>
+      this.updateOptionsToGenerate(property.id, e.target.value)
+    );
 
     property.options.forEach((option) => {
       this.renderOption(property, option);
@@ -270,15 +541,282 @@ class CharacterGenerator {
         this.textContent = "▶";
       }
     });
+  }
 
-    // Apply translations to the newly created elements
-    this.applyLanguage();
+  // Add new method to toggle property enabled state
+  togglePropertyEnabled(propertyId) {
+    const property = this.properties.find((p) => p.id === propertyId);
+    if (!property) return;
+
+    // Check if this would leave no enabled properties
+    const enabledProperties = this.properties.filter((p) => p.enabled);
+    if (property.enabled && enabledProperties.length === 1) {
+      const message = this.getTranslation("must-keep-one-property");
+      alert(message);
+      return;
+    }
+
+    // Toggle the enabled state
+    property.enabled = !property.enabled;
+
+    // Update the UI
+    const propertyElement = document.getElementById(propertyId);
+    const toggleBtn = propertyElement.querySelector(".enable-toggle-btn");
+
+    if (property.enabled) {
+      propertyElement.classList.remove("disabled");
+      toggleBtn.classList.remove("disabled");
+      toggleBtn.classList.add("enabled");
+      toggleBtn.textContent = "✓";
+      toggleBtn.title = this.getTranslation("disable-property");
+    } else {
+      propertyElement.classList.add("disabled");
+      toggleBtn.classList.remove("enabled");
+      toggleBtn.classList.add("disabled");
+      toggleBtn.textContent = "✗";
+      toggleBtn.title = this.getTranslation("enable-property");
+    }
+
+    this.saveToLocalStorage();
+  }
+
+  generateIdeas() {
+    // Filter only enabled properties
+    const enabledProperties = this.properties.filter((p) => p.enabled);
+
+    if (enabledProperties.length === 0) {
+      const message = this.getTranslation("no-enabled-properties");
+      alert(message);
+      return;
+    }
+
+    // Check if enabled properties have at least one option
+    const propertiesWithoutOptions = enabledProperties.filter(
+      (p) => p.options.length === 0
+    );
+    if (propertiesWithoutOptions.length > 0) {
+      const message = this.getTranslation("properties-need-options").replace(
+        "{properties}",
+        propertiesWithoutOptions.map((p) => p.name).join(", ")
+      );
+      alert(message);
+      return;
+    }
+
+    const numIdeas = parseInt(document.getElementById("generationCount").value);
+    this.results = [];
+
+    for (let i = 0; i < numIdeas; i++) {
+      const character = {};
+      // Only use enabled properties for generation
+      enabledProperties.forEach((property) => {
+        const selectedOptions = [];
+        const numOptionsToSelect = Math.min(
+          property.optionsToGenerate,
+          property.options.length
+        );
+
+        // Create a copy of options to avoid modifying the original
+        const availableOptions = [...property.options];
+
+        for (let j = 0; j < numOptionsToSelect; j++) {
+          if (availableOptions.length === 0) break;
+          const randomIndex = Math.floor(
+            Math.random() * availableOptions.length
+          );
+          selectedOptions.push(availableOptions[randomIndex].text);
+          availableOptions.splice(randomIndex, 1); // Remove selected option to avoid duplicates
+        }
+
+        character[property.name] = selectedOptions;
+      });
+      this.results.push(character);
+    }
+
+    this.renderResults();
+  }
+
+  // Update importPropertiesFromJsonText to handle enabled field
+  importPropertiesFromJsonText(jsonText) {
+    try {
+      const importedData = JSON.parse(jsonText);
+
+      if (!Array.isArray(importedData)) {
+        const message = this.getTranslation("json-must-be-array");
+        alert(message);
+        return;
+      }
+
+      // Clear existing properties
+      this.properties = [];
+      document.getElementById("propertyList").innerHTML = "";
+
+      // Process imported data
+      importedData.forEach((item, index) => {
+        if (item.name && Array.isArray(item.options)) {
+          const property = {
+            id: `property-${Date.now()}-${index}`,
+            name: item.name,
+            options: item.options.map((option, optionIndex) => ({
+              id: `option-${Date.now()}-${index}-${optionIndex}`,
+              text: typeof option === "string" ? option : option.text || option,
+            })),
+            optionsToGenerate: item.optionsToGenerate || 1,
+            enabled: item.enabled !== undefined ? item.enabled : true, // Default to enabled if not specified
+          };
+
+          this.properties.push(property);
+          this.renderProperty(property);
+        }
+      });
+
+      this.saveToLocalStorage();
+      const message = this.getTranslation("import-success").replace(
+        "{count}",
+        this.properties.length
+      );
+      alert(message);
+
+      // Close the modal
+      document.getElementById("jsonPasteModal").style.display = "none";
+      document.getElementById("jsonPasteArea").value = "";
+    } catch (error) {
+      const message = this.getTranslation("import-error").replace(
+        "{error}",
+        error.message
+      );
+      alert(message);
+    }
   }
 
   removeProperty(propertyId) {
     this.properties = this.properties.filter((p) => p.id !== propertyId);
     document.getElementById(propertyId).remove();
     this.saveToLocalStorage(); // Auto-save after removing property
+  }
+
+  // Add new method to start editing property name
+  startEditingPropertyName(propertyId) {
+    const property = this.properties.find((p) => p.id === propertyId);
+    if (!property) return;
+
+    const propertyNameElement = document.querySelector(
+      `.property-name[data-property-id="${propertyId}"]`
+    );
+    if (!propertyNameElement) return;
+
+    // Create input element for editing
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = property.name;
+    input.className = "property-name-editor";
+    input.style.cssText = `
+      width: 100%;
+      font-size: inherit;
+      font-weight: inherit;
+      border: 2px solid var(--accent-color);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      padding: 4px 8px;
+      border-radius: 4px;
+      outline: none;
+    `;
+
+    // Replace h3 with input
+    propertyNameElement.style.display = "none";
+    propertyNameElement.parentNode.insertBefore(input, propertyNameElement);
+
+    // Focus and select all text
+    input.focus();
+    input.select();
+
+    // Flag to prevent multiple calls
+    let isEditing = true;
+
+    // Handle save/cancel events
+    const saveEdit = () => {
+      if (!isEditing) return;
+      isEditing = false;
+
+      const newName = input.value.trim();
+      if (newName && this.validatePropertyName(newName, propertyId)) {
+        this.updatePropertyName(propertyId, newName);
+      }
+      this.cancelEdit(propertyId, input, propertyNameElement);
+    };
+
+    const cancelEdit = () => {
+      if (!isEditing) return;
+      isEditing = false;
+
+      this.cancelEdit(propertyId, input, propertyNameElement);
+    };
+
+    // Event listeners
+    input.addEventListener("blur", saveEdit);
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        saveEdit();
+      } else if (e.key === "Escape") {
+        cancelEdit();
+      }
+    });
+  }
+
+  // Helper method to cancel editing
+  cancelEdit(propertyId, input, propertyNameElement) {
+    if (input && input.parentNode) {
+      input.parentNode.removeChild(input);
+    }
+    if (propertyNameElement) {
+      propertyNameElement.style.display = "";
+    }
+  }
+
+  // Validate property name (no duplicates, not empty)
+  validatePropertyName(newName, excludePropertyId = null) {
+    if (!newName.trim()) {
+      alert(
+        this.getTranslation("property-name-empty") ||
+          "Property name cannot be empty"
+      );
+      return false;
+    }
+
+    const existingProperty = this.properties.find(
+      (p) =>
+        p.name.toLowerCase() === newName.toLowerCase() &&
+        p.id !== excludePropertyId
+    );
+
+    if (existingProperty) {
+      alert(
+        this.getTranslation("property-name-exists") ||
+          "A property with this name already exists"
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  // Update property name
+  updatePropertyName(propertyId, newName) {
+    const property = this.properties.find((p) => p.id === propertyId);
+    if (!property) return;
+
+    property.name = newName;
+
+    // Update the display
+    const propertyNameElement = document.querySelector(
+      `.property-name[data-property-id="${propertyId}"]`
+    );
+    if (propertyNameElement) {
+      propertyNameElement.textContent = newName;
+    }
+
+    // Save to localStorage
+    this.saveToLocalStorage();
   }
 
   addOption(propertyId) {
@@ -325,8 +863,10 @@ class CharacterGenerator {
     `;
 
     // Add event listener for the remove button
-    const removeBtn = optionElement.querySelector('.remove-btn');
-    removeBtn.addEventListener('click', () => this.removeOption(property.id, option.id));
+    const removeBtn = optionElement.querySelector(".remove-btn");
+    removeBtn.addEventListener("click", () =>
+      this.removeOption(property.id, option.id)
+    );
 
     optionsList.appendChild(optionElement);
   }
@@ -345,22 +885,26 @@ class CharacterGenerator {
   }
 
   generateIdeas() {
-    if (this.properties.length === 0) {
-      alert(
-        "Please add at least one property with options before generating ideas."
-      );
+    // Filter only enabled properties
+    const enabledProperties = this.properties.filter(
+      (p) => p.enabled !== false
+    );
+
+    if (enabledProperties.length === 0) {
+      alert(this.getTranslation("no-enabled-properties"));
       return;
     }
 
-    // Check if all properties have at least one option
-    const propertiesWithoutOptions = this.properties.filter(
+    // Check if enabled properties have at least one option
+    const propertiesWithoutOptions = enabledProperties.filter(
       (p) => p.options.length === 0
     );
     if (propertiesWithoutOptions.length > 0) {
       alert(
-        `The following properties need at least one option: ${propertiesWithoutOptions
-          .map((p) => p.name)
-          .join(", ")}`
+        this.getTranslation("properties-need-options").replace(
+          "{properties}",
+          propertiesWithoutOptions.map((p) => p.name).join(", ")
+        )
       );
       return;
     }
@@ -370,7 +914,8 @@ class CharacterGenerator {
 
     for (let i = 0; i < numIdeas; i++) {
       const character = {};
-      this.properties.forEach((property) => {
+      // Only process enabled properties
+      enabledProperties.forEach((property) => {
         const selectedOptions = [];
         const numOptionsToSelect = Math.min(
           property.optionsToGenerate,
@@ -528,77 +1073,6 @@ class CharacterGenerator {
     document.body.removeChild(textArea);
   }
 
-  importPropertiesFromJsonText(jsonText) {
-    try {
-      const importedProperties = JSON.parse(jsonText);
-
-      // Validate the imported data
-      if (!Array.isArray(importedProperties)) {
-        throw new Error(this.getTranslation("json-must-be-array"));
-      }
-
-      // Validate each property
-      importedProperties.forEach((property, index) => {
-        if (
-          !property.id ||
-          !property.name ||
-          !Array.isArray(property.options)
-        ) {
-          throw new Error(
-            `Property at index ${index} is missing required fields (id, name, options)`
-          );
-        }
-
-        // Validate options
-        property.options.forEach((option, optionIndex) => {
-          if (!option.id || !option.text) {
-            throw new Error(
-              `Option at index ${optionIndex} in property "${property.name}" is missing required fields (id, text)`
-            );
-          }
-        });
-
-        // Set default optionsToGenerate if not present
-        if (!property.optionsToGenerate) {
-          property.optionsToGenerate = 1;
-        }
-      });
-
-      // Clear existing properties
-      this.properties = [];
-      document.getElementById("propertyList").innerHTML = "";
-
-      // Import new properties
-      this.properties = importedProperties;
-
-      // Render all imported properties
-      this.properties.forEach((property) => {
-        this.renderProperty(property);
-      });
-
-      this.saveToLocalStorage(); // Save imported data
-      alert(
-        this.getTranslation("import-success").replace(
-          "{count}",
-          importedProperties.length
-        )
-      );
-    } catch (error) {
-      alert(
-        this.getTranslation("import-error").replace("{error}", error.message)
-      );
-      console.error("JSON import error:", error);
-    }
-  }
-
-  importPropertiesFromJson(jsonFile) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      this.importPropertiesFromJsonText(e.target.result);
-    };
-    reader.readAsText(jsonFile);
-  }
-
   exportPropertiesToJson() {
     if (this.properties.length === 0) {
       alert(this.getTranslation("no-properties-export"));
@@ -679,9 +1153,14 @@ class CharacterGenerator {
 
     // Get sample data based on current language
     const sampleData = this.getSampleData();
-    
-    // Load sample data
-    this.properties = JSON.parse(JSON.stringify(sampleData)); // Deep copy to avoid reference issues
+
+    // Load sample data and ensure enabled defaults to true
+    this.properties = JSON.parse(JSON.stringify(sampleData)).map(
+      (property) => ({
+        ...property,
+        enabled: property.enabled !== undefined ? property.enabled : true,
+      })
+    ); // Deep copy and set default enabled to true
 
     // Render all sample properties
     this.properties.forEach((property) => {
@@ -785,6 +1264,13 @@ const translations = {
     "paste-json-before-import": "請在匯入前貼上 JSON 資料",
     "wipe-success": "所有資料已成功清除！",
     "sample-load-success": "成功載入 {count} 個範例屬性！",
+    "enable-property": "啟用屬性",
+    "disable-property": "停用屬性",
+    "must-keep-one-property": "至少必須保持一個屬性為啟用狀態",
+    "no-enabled-properties": "沒有啟用的屬性。請至少啟用一個屬性後再生成構思。",
+    "properties-need-options": "以下屬性需要至少一個選項：{properties}",
+    "property-name-empty": "屬性名稱不能為空",
+    "property-name-exists": "已存在同名的屬性",
   },
   en: {
     // Header
@@ -847,6 +1333,15 @@ const translations = {
     "paste-json-before-import": "Please paste JSON data before importing",
     "wipe-success": "All data has been wiped successfully!",
     "sample-load-success": "Successfully loaded {count} sample properties!",
+    "enable-property": "Enable Property",
+    "disable-property": "Disable Property",
+    "must-keep-one-property": "At least one property must remain enabled",
+    "no-enabled-properties":
+      "No enabled properties. Please enable at least one property before generating ideas.",
+    "properties-need-options":
+      "The following properties need at least one option: {properties}",
+    "property-name-empty": "Property name cannot be empty",
+    "property-name-exists": "A property with this name already exists",
   },
 };
 
