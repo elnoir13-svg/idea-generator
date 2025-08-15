@@ -46,7 +46,8 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        { from: 'src/sample.json', to: 'sample.json' },  // Updated to src directory
+        { from: 'src/sample.json', to: 'sample.json' },
+        { from: 'src/sample-en.json', to: 'sample-en.json' }, // Add this line
         { from: 'README.md', to: 'README.md' },
         { from: 'README-en.md', to: 'README-en.md' }
       ],

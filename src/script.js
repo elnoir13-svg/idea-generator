@@ -1,6 +1,8 @@
 // Import CSS
 import "./styles.css";
-import SAMPLE_DATA from "./sample.json";
+// Import both sample data files
+import SAMPLE_DATA_ZH from "./sample.json";
+import SAMPLE_DATA_EN from "./sample-en.json";
 
 class CharacterGenerator {
   constructor() {
@@ -9,6 +11,12 @@ class CharacterGenerator {
     this.loadFromLocalStorage(); // Load saved data on startup
     this.initEventListeners();
     this.applyLanguage(); // Apply language on startup
+  }
+
+  // Get the appropriate sample data based on current language
+  getSampleData() {
+    const currentLang = document.documentElement.getAttribute("lang") || "zh-TW";
+    return currentLang === "en" ? SAMPLE_DATA_EN : SAMPLE_DATA_ZH;
   }
 
   initEventListeners() {
@@ -669,8 +677,11 @@ class CharacterGenerator {
     this.properties = [];
     document.getElementById("propertyList").innerHTML = "";
 
-    // Load sample data from constant
-    this.properties = JSON.parse(JSON.stringify(SAMPLE_DATA)); // Deep copy to avoid reference issues
+    // Get sample data based on current language
+    const sampleData = this.getSampleData();
+    
+    // Load sample data
+    this.properties = JSON.parse(JSON.stringify(sampleData)); // Deep copy to avoid reference issues
 
     // Render all sample properties
     this.properties.forEach((property) => {
@@ -680,7 +691,7 @@ class CharacterGenerator {
     this.saveToLocalStorage();
     const message = this.getTranslation("sample-load-success").replace(
       "{count}",
-      SAMPLE_DATA.length
+      sampleData.length
     );
     alert(message);
   }
