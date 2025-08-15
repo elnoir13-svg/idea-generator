@@ -26,7 +26,7 @@ A web-based tool for generating random character ideas for creative projects, ga
 
 ## JSON Sample
 
-You can import/export character properties using JSON format. Here's a sample structure:
+You can import/export character properties using JSON format. Here's a sample structure, or you can refer to our [sample.json](./sample.json) file:
 
 ```json
 [
@@ -107,7 +107,56 @@ You can import/export character properties using JSON format. Here's a sample st
 - HTML5
 - CSS3 (with CSS Variables for theming)
 - JavaScript (ES6+)
+- Webpack (for building and development)
 - Local Storage for data persistence
+
+## Development Setup
+
+### Prerequisites
+- Node.js (version 14 or higher)
+- npm or yarn
+
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd idea-generator
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+### Development Commands
+
+- **Development mode** (with hot reload):
+  ```bash
+  npm run serve
+  ```
+  This starts the development server and opens the application in your browser.
+
+- **Build for development**:
+  ```bash
+  npm run dev
+  ```
+
+- **Build for production**:
+  ```bash
+  npm run build
+  ```
+
+- **Watch mode** (auto-rebuild):
+  ```bash
+  npm run watch
+  ```
+
+- **Clean build files**:
+  ```bash
+  npm run clean
+  ```
+
+### Project Structure
 
 ## Deployment
 

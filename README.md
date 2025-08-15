@@ -107,7 +107,56 @@
 - HTML5
 - CSS3（使用 CSS 變數進行主題設定）
 - JavaScript (ES6+)
+- Webpack（用於建置和開發）
 - 本地儲存用於資料持久化
+
+## 開發設定
+
+### 先決條件
+- Node.js (版本 14 或更高)
+- npm 或 yarn
+
+### 安裝
+1. 複製儲存庫：
+   ```bash
+   git clone <repository-url>
+   cd idea-generator
+   ```
+
+2. 安裝相依套件：
+   ```bash
+   npm install
+   ```
+
+### 開發指令
+
+- **開發模式**（含熱重載）：
+  ```bash
+  npm run serve
+  ```
+  這會啟動開發伺服器並在瀏覽器中開啟應用程式。
+
+- **建置開發版本**：
+  ```bash
+  npm run dev
+  ```
+
+- **建置生產版本**：
+  ```bash
+  npm run build
+  ```
+
+- **監視模式**（自動重新建置）：
+  ```bash
+  npm run watch
+  ```
+
+- **清理建置檔案**：
+  ```bash
+  npm run clean
+  ```
+
+### 專案結構
 
 ## 部署
 
