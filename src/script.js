@@ -17,6 +17,15 @@ class CharacterGenerator {
       .getElementById("addPropertyBtn")
       .addEventListener("click", () => this.addProperty());
 
+    // Add Enter key support for new property input
+    document
+      .getElementById("newPropertyName")
+      .addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          this.addProperty();
+        }
+      });
+
     // Generate button
     document
       .getElementById("generateBtn")
@@ -224,6 +233,14 @@ class CharacterGenerator {
 
     const addOptionBtn = propertyElement.querySelector('.add-option-btn');
     addOptionBtn.addEventListener('click', () => this.addOption(property.id));
+
+    // Add Enter key support for new option input
+    const newOptionInput = propertyElement.querySelector(`#newOption-${property.id}`);
+    newOptionInput.addEventListener('keypress', (e) => {
+      if (e.key === "Enter") {
+        this.addOption(property.id);
+      }
+    });
 
     const optionsCountInput = propertyElement.querySelector('.options-count-input');
     optionsCountInput.addEventListener('change', (e) => this.updateOptionsToGenerate(property.id, e.target.value));
