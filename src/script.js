@@ -200,23 +200,33 @@ class CharacterGenerator {
         <h3>${property.name}</h3>
         <div class="property-controls">
           <button class="toggle-property-btn">▼</button>
-          <button onclick="generator.removeProperty('${property.id}')" class="remove-btn">🗑️</button>
+          <button class="remove-btn" data-property-id="${property.id}">🗑️</button>
         </div>
       </div>
       <div class="property-content">
         <div class="property-options" id="options-${property.id}"></div>
         <div class="add-option">
           <input type="text" id="newOption-${property.id}" placeholder="新選項" data-i18n-placeholder="add-option-placeholder" />
-          <button onclick="generator.addOption('${property.id}')" class="add-option-btn">+</button>
+          <button class="add-option-btn" data-property-id="${property.id}">+</button>
         </div>
         <div class="property-settings">
           <label for="optionsCount-${property.id}" data-i18n="options-count-label">選項數量:</label>
-          <input type="number" id="optionsCount-${property.id}" class="options-count-input" min="1" value="${property.optionsToGenerate}" onchange="generator.updateOptionsToGenerate('${property.id}', this.value)" />
+          <input type="number" id="optionsCount-${property.id}" class="options-count-input" min="1" value="${property.optionsToGenerate}" data-property-id="${property.id}" />
         </div>
       </div>
     `;
 
     propertyList.appendChild(propertyElement);
+
+    // Add event listeners for the new elements
+    const removeBtn = propertyElement.querySelector('.remove-btn');
+    removeBtn.addEventListener('click', () => this.removeProperty(property.id));
+
+    const addOptionBtn = propertyElement.querySelector('.add-option-btn');
+    addOptionBtn.addEventListener('click', () => this.addOption(property.id));
+
+    const optionsCountInput = propertyElement.querySelector('.options-count-input');
+    optionsCountInput.addEventListener('change', (e) => this.updateOptionsToGenerate(property.id, e.target.value));
 
     property.options.forEach((option) => {
       this.renderOption(property, option);
@@ -286,8 +296,12 @@ class CharacterGenerator {
     optionElement.id = option.id;
     optionElement.innerHTML = `
       <span>${option.text}</span>
-      <button onclick="generator.removeOption('${property.id}', '${option.id}')" class="remove-btn">❌</button>
+      <button class="remove-btn" data-property-id="${property.id}" data-option-id="${option.id}">❌</button>
     `;
+
+    // Add event listener for the remove button
+    const removeBtn = optionElement.querySelector('.remove-btn');
+    removeBtn.addEventListener('click', () => this.removeOption(property.id, option.id));
 
     optionsList.appendChild(optionElement);
   }
