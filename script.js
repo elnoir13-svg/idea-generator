@@ -599,7 +599,7 @@ class CharacterGenerator {
 
   addOption(propertyId) {
     const property = this.properties.find((p) => p.id === propertyId);
-    const optionInput = document.getElementById(`new-option-${propertyId}`);
+    const optionInput = document.getElementById(`newOption-${propertyId}`);
     const optionText = optionInput.value.trim();
 
     if (!optionText) {
